@@ -9,7 +9,7 @@ import termcolor
 
 class _ConsoleFormatter(logging.Formatter):
     _LEVEL_FORMAT: typing.Final[dict[int, dict[str, str | list[str]]]] = {
-        logging.DEBUG: {"color": "blue"},
+        logging.DEBUG: {"color": "cyan"},
         logging.INFO: {"color": "white"},
         logging.WARNING: {"color": "yellow"},
         logging.ERROR: {"color": "red"},

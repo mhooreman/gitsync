@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.3.3",
-    "loguru>=0.7.3",
     "termcolor>=3.3.0",
 ]
 classifiers = [
@@ -30,6 +29,12 @@ gitsync = "gitsync.cli:main"
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.20.2",
+    "ruff>=0.15.11",
+]
 
 [tool.ruff]
 line-length = 79  # pep8
@@ -150,31 +155,5 @@ show_error_end = true
 show_error_code_links = true
 pretty = true
 mypy_path = "$MYPY_CONFIG_FILE_DIR/src $MYPY_CONFIG_FILE_DIR/tests"
-packages = ["qadt", "tests", "devtool"]
+packages = ["gitsync", ]
 
-[tool.pytest.ini_options]
-console_output_style = "classic"
-log_auto_indent = true
-log_cli = true
-pythonpath = ["src", ]
-required_plugins = []
-testpaths = ["tests", ]
-addopts = "--cov"
-
-[tool.coverage.run]
-branch = true
-omit = ["tests/*", ]
-
-[tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if TYPE_CHECKING:",
-]
-format = "text"
-show_missing = true
-
-[dependency-groups]
-dev = [
-    "mypy>=1.20.2",
-    "ruff>=0.15.11",
-]

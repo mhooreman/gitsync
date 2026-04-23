@@ -14,7 +14,7 @@ class _App:
 
 @click.command(name="gitsync")
 @click.argument(
-    "source_dir", required=True, type=click.Path(
+    "vanilla_dir", required=True, type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True,
         allow_dash=False, path_type=pathlib.Path
     )
@@ -25,9 +25,9 @@ class _App:
         writable=True, allow_dash=False, path_type=pathlib.Path
     )
 )
-def main(source_dir: pathlib.Path, repository_dir: pathlib.Path) -> None:
+def main(vanilla_dir: pathlib.Path, repository_dir: pathlib.Path) -> None:
     """Synchronize a vanilla directory to a git repository."""
-    Synchonizer(source_dir=source_dir, repository_dir=repository_dir)()
+    Synchonizer(vanilla_dir=vanilla_dir, repository_dir=repository_dir)()
 
 
 if __name__ == "__main__":
