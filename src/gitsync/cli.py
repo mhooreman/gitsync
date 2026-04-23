@@ -7,11 +7,6 @@ import click
 from ._core import Synchonizer
 
 
-class _App:
-    def __call__(self) -> None:
-        pass
-
-
 @click.command(name="gitsync")
 @click.argument(
     "vanilla_dir", required=True, type=click.Path(

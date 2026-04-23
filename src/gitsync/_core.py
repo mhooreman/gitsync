@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import functools
 import os.path
 import pathlib
@@ -24,6 +25,12 @@ class NotAGitRepositoryError(OSError):
 
 class IsAlreadyAGitRepositoryError(OSError):
     pass
+
+
+@dataclasses.dataclass(kw_only=True, frozen=True)
+class ExistingBranches:
+    default: str | None
+    branches: tuple[str, ...]
 
 
 @dataclasses.dataclass(kw_only=True, frozen=True)
@@ -60,9 +67,7 @@ class Synchonizer:
                 allow_dash=False, path_type=pathlib.Path, executable=True
             )
         )
-        if not isinstance(ret, pathlib.Path):
-            raise TypeError(ret)
-        return ret
+        return typing.cast("pathlib.Path", ret)
 
     @functools.cached_property
     def git_bin_path(self) -> pathlib.Path:
@@ -97,6 +102,27 @@ class Synchonizer:
         if rc != 0:
             raise subprocess.CalledProcessError(rc, args)
 
+    @functools.cached_property
+    def vanilla_max_mtime(self) -> datetime.datetime:
+        def path2timestamp(path: pathlib.Path) -> float:
+            return path.stat().st_mtime
+
+        def gen() -> typing.Iterator[float]:
+            yield path2timestamp(self.vanilla_dir)
+            for p in self.vanilla_dir.glob("**/*"):
+                yield p.stat().st_mtime
+
+        return datetime.datetime.fromtimestamp(max(gen()))  # noqa: DTZ006
+
+    @functools.cached_property
+    def new_branch_name(self) -> str:
+        default = "".join([
+            __name__.rsplit(".", 1)[0],
+            self.vanilla_max_mtime.strftime("%Y%m%d%H%M%S")
+        ])
+        ret = click.prompt("Branch name", default=default, type=str)
+        return typing.cast("str", ret)
+
     def _run_rsync(self) -> None:
         args = [
             "rsync",
@@ -113,23 +139,77 @@ class Synchonizer:
         args += [vanilla_term_sep, "."]
         self._run_command(args, from_dir=self.repository_dir)
 
+    @functools.cached_property
+    def base_branch(self) -> str:
+        return typing.cast(
+            "str",
+            click.prompt(
+                "Base branch",
+                default=self.existing_branches.default,
+                type=click.Choice(self.existing_branches.branches)
+            )
+        )
+
     def _ask_premiminary_prompts(self) -> None:
         _ = self.git_bin_path
         _ = self.rsync_bin_path
-        # TODO _ = self.branch_name
-        # TODO _ = self.commit_message
+        _ = self.new_branch_name
+        _ = self.base_branch
+        # TODO _ = self.commit_message - Text editor
+        click.confirm(
+            f"OK to update {self.repository_dir} with {self.vanilla_dir}?",
+            default=True, abort=True
+        )
+
+    @functools.cached_property
+    def existing_branches(self) -> ExistingBranches:
+        def gen_existing() -> typing.Generator[tuple[bool, str]]:
+            lns = subprocess.run(  # noqa: S603
+                [self.git_bin_path, "branch", "--all"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=self.repository_dir,
+                check=True
+            ).stdout.split("\n")
+            for ln_ in lns:
+                ln = ln_.strip()
+                if not ln:
+                    continue
+                default = ln[0] == "*"
+                if default:
+                    ln = ln[1:]
+                name = ln.strip()
+                yield (default, name)
+
+        tmp = tuple(gen_existing())
+        defaults = [t[1] for t in tmp if t[0]]
+        if len(defaults) != 1:
+            logger.error(
+                "Cannot guess current branch: %s. Setting to unknown.",
+                defaults
+            )
+            default = None
+        else:
+            default = defaults[0]
+        return ExistingBranches(
+            default=default, branches=tuple(t[1] for t in tmp)
+        )
 
     def __call__(self) -> None:
-        logger.debug("git: %s", self.git_bin_path)
-        logger.debug("rsync: %s", self.rsync_bin_path)
         self._ask_premiminary_prompts()
-        logger.info("Pushing %s to %s", self.vanilla_dir, self.repository_dir)
-        # TODO self._confirm_base_branch()
-        # TODO self._create_branch()
-        # TODO self._checkout_branch()
+        logger.info(
+            'Updating %s with %s using branch "%s" from "%s"',
+            self.new_branch_name,
+            self.base_branch
+        )
+        # TODO check that new branch does not exists
+        # TODO self._go_to_base_branch()
+        # TODO self._create_and_checkout_new_branch()
         self._run_rsync()
         # TODO self._check_status_and_adapt_gitignore (loop)
         # TODO self._add()
         # TODO self._commit()
-        # TODO self._merge_if_required()
+        # TODO self._propose_to_merge()
+        # TODO self._propose_to_tag()
         raise NotImplementedError
