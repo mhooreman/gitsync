@@ -265,11 +265,17 @@ class Synchonizer:
             f"Last vanilla change: {lu}",
             "",
             "# This is the commit message that you can edit.",
-            "# Lines starting with '#' will be ignored.",
+            "# Everything after '#' will be removed.",
             "#",
             "# vim: filetype=gitcommit"
         ])
-        return _editable_prompt(default)
+        msg = _editable_prompt(default)
+        lines = [l.strip().split("#", 1)[0] for l in msg.split("\n")]
+        while lines[0] == "":
+            lines = lines[1:]
+        while lines[-1] == "":
+            lines = lines[:-1]
+        return "\n".join(lines)
 
     @functools.cached_property
     def existing_branches(self) -> ExistingBranches:
