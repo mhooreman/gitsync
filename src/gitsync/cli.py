@@ -4,7 +4,7 @@ import pathlib
 
 import click
 
-from ._core import Synchonizer
+from ._core import Synchronizer
 
 
 @click.command(name="gitsync")
@@ -23,7 +23,7 @@ from ._core import Synchonizer
 )
 def main(vanilla_dir: pathlib.Path, repository_dir: pathlib.Path) -> None:
     """Synchronize a vanilla directory to a git repository."""
-    Synchonizer(vanilla_dir=vanilla_dir, repository_dir=repository_dir)()
+    Synchronizer(vanilla_dir=vanilla_dir, repository_dir=repository_dir)()
 
 
 if __name__ == "__main__":

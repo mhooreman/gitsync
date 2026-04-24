@@ -50,7 +50,7 @@ def _run_command(
     from_dir: pathlib.Path | None = None,
     out_callback: typing.Callable[[str], None] | None = None,
     *,
-    check_exit_success: bool = False
+    check_exit_success: bool = True
 ) -> tuple[str, ...] | None:
     """Process an operating system command line.
 
@@ -169,7 +169,7 @@ class GitFileStatus:
 
 
 @dataclasses.dataclass(kw_only=True, frozen=True)
-class Synchonizer:
+class Synchronizer:
     vanilla_dir: pathlib.Path
     repository_dir: pathlib.Path
 
@@ -270,10 +270,10 @@ class Synchonizer:
             "# vim: filetype=gitcommit"
         ])
         msg = _editable_prompt(default)
-        lines = [l.strip().split("#", 1)[0] for l in msg.split("\n")]
-        while lines[0] == "":
+        lines = [ln.strip().split("#", 1)[0] for ln in msg.split("\n")]
+        while not lines[0]:
             lines = lines[1:]
-        while lines[-1] == "":
+        while not lines[-1]:
             lines = lines[:-1]
         return "\n".join(lines)
 
@@ -312,7 +312,7 @@ class Synchonizer:
             default=default, branches=tuple(t[1] for t in tmp)
         )
 
-    def _ask_premiminary_prompts(self) -> None:
+    def _ask_preliminary_prompts(self) -> None:
         _ = self.git_bin_path
         _ = self.rsync_bin_path
         _ = self.new_branch
@@ -321,7 +321,7 @@ class Synchonizer:
 
     def _ask_confirmation(self) -> None:
         click.echo(f"Vanilla directory: {self.vanilla_dir}")
-        click.echo(f"Repostory directory: {self.repository_dir}")
+        click.echo(f"Repository directory: {self.repository_dir}")
         click.echo(f"Branch: {self.base_branch} -> {self.new_branch}")
         click.echo(f"Last vanilla file updated on: {self.vanilla_max_mtime}")
         click.echo(f"Commit message:\n{self.commit_message}")
@@ -330,24 +330,24 @@ class Synchonizer:
     def _go_to_base_branch(self) -> None:
         logger.info("Checking out branch %s", self.base_branch)
         _run_command(
-            ["git", "checkout", self.base_branch],
+            [str(self.git_bin_path), "checkout", self.base_branch],
             from_dir=self.repository_dir,
             out_callback=functools.partial(_rstripped_log_debug, indent="    ")
         )
 
     def _create_and_checkout_new_branch(self) -> None:
         logger.info(
-            "Creating and cheking out new branch %s", self.new_branch
+            "Creating and checking out new branch %s", self.new_branch
         )
         _run_command(
-            ["git", "checkout", "-b", self.new_branch],
+            [str(self.git_bin_path), "checkout", "-b", self.new_branch],
             from_dir=self.repository_dir,
             out_callback=functools.partial(_rstripped_log_debug, indent="    ")
         )
 
     def _run_rsync(self) -> None:
         logger.info("Synchronizing vanilla content to repository")
-        args = ["rsync", "--verbose", "--archive", "--delete"]
+        args = [str(self.rsync_bin_path), "--verbose", "--archive", "--delete"]
         for x in _RSYNC_EXCLUDE:
             args += ["--exclude", x]
 
@@ -364,7 +364,8 @@ class Synchonizer:
     def _current_repository_files_status(self) -> tuple[GitFileStatus, ...]:
         logger.info("Extracting repository files status")
         lines = _run_command(
-            ["git", "status", "--porcelain"], from_dir=self.repository_dir
+            [str(self.git_bin_path), "status", "--porcelain"],
+            from_dir=self.repository_dir
         )
         if lines is None:
             msg = "Git status provided no result"
@@ -394,22 +395,22 @@ class Synchonizer:
         gitignore_path.write_text(_editable_prompt(default))
 
     def _add_and_commit(self) -> None:
-        logger.info("Staging and comitting changes")
+        logger.info("Staging and committing changes")
         f = functools.partial(
             _run_command,
             from_dir=self.repository_dir,
             out_callback=functools.partial(_rstripped_log_debug, indent="    ")
         )
-        f(["git", "add", "--all"])
+        f([str(self.git_bin_path), "add", "--all"])
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", suffix=".txt"
         ) as tmpf:
             tmpf.write(self.commit_message)
             tmpf.flush()
-            f(["git", "commit", "-F", tmpf.name])
+            f([str(self.git_bin_path), "commit", "-F", tmpf.name])
 
     def __call__(self) -> None:
-        self._ask_premiminary_prompts()
+        self._ask_preliminary_prompts()
         self._ask_confirmation()
         self._go_to_base_branch()
         self._create_and_checkout_new_branch()
