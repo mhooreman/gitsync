@@ -6,6 +6,8 @@
 - GH #8: The command runner now check exit success by default
 - GH #9: The readed path for rsync and git are now used
 - GH #10: Fixed titles syntax for the MD documents (confused with RST)
+- GH #13: Risk documented
+- GH #14: If repository has pending changes, a confirmation is required
 
 ## 0.0.2
 
