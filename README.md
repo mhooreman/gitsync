@@ -9,7 +9,7 @@ to a git repository.
 Invocation
 ----------
 
-It shall be simply invoked from the command line (use --help).
+It shall be simply invoked from the command line (start with ``gitsync --help``).
 
 Installation
 ------------
