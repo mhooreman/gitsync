@@ -147,7 +147,7 @@ class _Setup:
         )
         if ret is None:
             return ()
-        ret = [ln.strip() for ln in ret]
+        ret = [ln.rstrip() for ln in ret]
         ret = [ln for ln in ret if ln]
         return tuple(ret)
 
