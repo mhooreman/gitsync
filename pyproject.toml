@@ -1,6 +1,6 @@
 [project]
 name = "gitsync"
-version = "0.1.0"
+version = "0.1.1"
 description = "Synchronise a vanilla directory to a git repository"
 readme = "README.md"
 authors = [

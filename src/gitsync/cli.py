@@ -8,6 +8,7 @@ from ._core import Synchonizer
 
 
 @click.command(name="gitsync")
+@click.version_option()
 @click.argument(
     "vanilla_dir", required=True, type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True,
