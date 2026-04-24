@@ -1,6 +1,5 @@
 import dataclasses
 import datetime
-import enum
 import functools
 import os.path
 import pathlib
@@ -114,66 +113,6 @@ def _editable_prompt(default: str) -> str:
     return ret
 
 
-class GitStatusLabel(enum.StrEnum):
-    UNMODIFIED = "unmodified"
-    MODIFIED = "modified"
-    ADDED = "added"
-    DELETED = "deleted"
-    RENAMED = "renamed"
-    COPIED = "copied"
-    UNMERGED = "unmerged"
-    UNTRACKED = "untracked"
-    IGNORED = "ignored"
-    UNKNOWN_MEANING = "unknown_meaning"
-
-
-_GIT_STATUS_CODE_MAPPING: typing.Final[dict[str, GitStatusLabel]] = {
-    "M": GitStatusLabel.MODIFIED,
-    "A": GitStatusLabel.ADDED,
-    "D": GitStatusLabel.DELETED,
-    "R": GitStatusLabel.RENAMED,
-    "C": GitStatusLabel.COPIED,
-    "U": GitStatusLabel.UNMERGED,
-    "?": GitStatusLabel.UNTRACKED,
-    "!": GitStatusLabel.IGNORED,
-    " ": GitStatusLabel.UNMODIFIED,
-}
-
-
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class GitFileStatus:
-    name: str
-    previous_name: str | None
-    status_code: str = dataclasses.field(repr=False)
-    statuses: tuple[GitStatusLabel, ...] = dataclasses.field(init=False)
-
-    def __post_init__(self) -> None:
-        def gen_status() -> typing.Generator[GitStatusLabel]:
-            for c in list(self.status_code.strip()):
-                yield _GIT_STATUS_CODE_MAPPING.get(
-                    c, GitStatusLabel.UNKNOWN_MEANING
-                )
-        object.__setattr__(self, "statuses", tuple(gen_status()))
-
-    @classmethod
-    def from_gitstatus_line(cls, line: str) -> typing.Self:
-        c: str  # code
-        n: str  # name
-        p: str | None  # previous name
-        fields = [x.strip() for x in line.split("\0")]
-        if len(fields) == 2:  # noqa: PLR2004
-            c, n = fields
-            p = None
-        elif len(fields) == 3:  # noqa: PLR2004
-            c, p, n = fields
-        else:
-            raise ValueError(fields)
-        # Dropping duplicates in c while keeping order
-        # Note: dict keeps insertion order starting with python 3.7
-        c = "".join(dict.fromkeys(c).keys())
-        return cls(name=n, previous_name=p, status_code=c)
-
-
 @dataclasses.dataclass(kw_only=True, frozen=True)
 class _Setup:
     vanilla_dir: pathlib.Path
@@ -197,6 +136,20 @@ class _Setup:
         if not self.repository_dir.joinpath(".git").exists():
             e = FileNotFoundError(self.vanilla_dir.joinpath(".git"))
             raise NotAGitRepositoryError(self.repository_dir) from e
+
+    @property
+    def repository_files_status_lines(self) -> tuple[str, ...]:
+        ret: typing.Sequence[str] | None
+        logger.info("Extracting repository files status")
+        ret = _run_command(
+            [str(self.git_bin_path), "status", "--porcelain=v1"],
+            from_dir=self.repository_dir
+        )
+        if ret is None:
+            return ()
+        ret = [ln.strip() for ln in ret]
+        ret = [ln for ln in ret if ln]
+        return tuple(ret)
 
     @staticmethod
     def _get_tool_path(name: str) -> pathlib.Path:
@@ -328,16 +281,7 @@ class _Setup:
         _ = self.commit_message
 
     def _ensure_repository_has_no_pending_change(self) -> None:
-        lines: typing.Iterable[str] | None
-        lines = _run_command(
-            [str(self.git_bin_path), "status", "--porcelain=v1", "-z"],
-            from_dir=self.repository_dir
-        )
-        if lines is None:
-            return
-        lines = [ln.strip() for ln in lines]
-        lines = [ln for ln in lines if ln]
-        if len(lines) > 0:
+        if len(self.repository_files_status_lines) > 0:
             click.confirm(
                 "The repository has pending changes which will disappear. "
                 "Continue ?",
@@ -405,26 +349,10 @@ class Synchronizer:
             out_callback=functools.partial(_rstripped_log_debug, indent="    ")
         )
 
-    @property
-    def _current_repository_files_status(self) -> tuple[GitFileStatus, ...]:
-        logger.info("Extracting repository files status")
-        lines = _run_command(
-            [str(self.setup.git_bin_path), "status", "--porcelain=v1", "-z"],
-            from_dir=self.repository_dir
-        )
-        if lines is None:
-            msg = "Git status provided no result"
-            raise ValueError(msg)
-        return tuple(GitFileStatus.from_gitstatus_line(line) for line in lines)
-
     def _confirm_changed_files(self) -> bool:
-        def gen_msg() -> typing.Generator[str]:
-            yield "Files status:"
-            for f in self._current_repository_files_status:
-                yield f"    - {f}"
-
-        logger.info("Asking confirmation for changed files")
-        click.echo("\n".join(gen_msg()))
+        click.echo("\n".join([
+            ln.rstrip() for ln in self.setup.repository_files_status_lines
+        ]))
         return click.confirm(
             "Continue (if no, edit .gitignore)", default=True, abort=False
         )
