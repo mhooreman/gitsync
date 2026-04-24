@@ -30,6 +30,15 @@ Limitations
 Only local repositories are supported. Upgrading remote repositories shall be
 done via local slave repository.
 
+Risks
+-----
+
+The tool synchronizes using ``rsync --delete``. This might unexpectedly delete
+unwanted files. The risk is limited by the fact that it is on a separated
+branch.
+
+
+
 Author
 ------
 
