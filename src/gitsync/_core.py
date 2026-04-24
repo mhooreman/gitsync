@@ -327,9 +327,27 @@ class _Setup:
         _ = self.base_branch
         _ = self.commit_message
 
+    def _ensure_repository_has_no_pending_change(self) -> None:
+        lines: typing.Iterable[str] | None
+        lines = _run_command(
+            [str(self.git_bin_path), "status", "--porcelein=v1", "-z"],
+            from_dir=self.repository_dir
+        )
+        if lines is None:
+            return
+        lines = [ln.strip() for ln in lines]
+        lines = [ln for ln in lines if ln]
+        if len(lines) > 0:
+            click.confirm(
+                "The repository has pending changes which will disappear. "
+                "Continue ?",
+                default=False, abort=True
+            )
+
     def _ask_confirmation(self) -> None:
         click.echo(f"Vanilla directory: {self.vanilla_dir}")
         click.echo(f"Repository directory: {self.repository_dir}")
+        self._ensure_repository_has_no_pending_change()
         click.echo(f"Branch: {self.base_branch} -> {self.new_branch}")
         click.echo(f"Last vanilla file updated on: {self.vanilla_max_mtime}")
         click.echo(f"Commit message:\n{self.commit_message}")
