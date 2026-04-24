@@ -67,7 +67,10 @@ class _LoggerBuilder:
     def logger(self) -> logging.Logger:
         ret = logging.getLogger(__name__.split(".", 1)[0])
         ret.setLevel(logging.DEBUG)
-        ret.addHandler(self._console_handler)
+        if not any(
+            isinstance(h, logging.StreamHandler) for h in ret.handlers
+        ):
+            ret.addHandler(self._console_handler)
         logging.captureWarnings(capture=True)
         return ret
 
