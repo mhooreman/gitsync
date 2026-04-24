@@ -330,7 +330,7 @@ class _Setup:
     def _ensure_repository_has_no_pending_change(self) -> None:
         lines: typing.Iterable[str] | None
         lines = _run_command(
-            [str(self.git_bin_path), "status", "--porcelein=v1", "-z"],
+            [str(self.git_bin_path), "status", "--porcelain=v1", "-z"],
             from_dir=self.repository_dir
         )
         if lines is None:
